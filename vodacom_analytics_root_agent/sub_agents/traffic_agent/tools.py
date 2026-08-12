@@ -1,11 +1,15 @@
 import csv
+import os
 from datetime import UTC, datetime
 from typing import Literal
 
 from dateutil.relativedelta import relativedelta
 
 # Load the traffic dataset from a CSV file
-with open("traffic_dataset.csv", mode="r", encoding="iso-8859-1", newline="") as file:
+_dir = os.path.dirname(os.path.abspath(__file__))
+with open(
+  os.path.join(_dir, "traffic_dataset.csv"), mode="r", encoding="iso-8859-1", newline=""
+) as file:
   records = list(csv.DictReader(file))
 
 
@@ -22,14 +26,25 @@ BillingType = Literal["prepaid", "hybrid", "total"]
 
 KPIType = Literal[
   "Voice Traffic - Billed",
-  "Voice Traffic - Unbilled",
-  "SMS Traffic - Billed",
-  "SMS Traffic - Unbilled",
+  "Voice Traffic - Free",
+  "Voice Traffic - OOB",
   "Data Traffic - Billed",
-  "Data Traffic - Unbilled",
-  "Outflows",
+  "Data Traffic - Free",
+  "Data Traffic - OOB",
+  "Sms Traffic - Billed",
+  "Sms Traffic - Free",
+  "Sms Traffic - OOB",
+  "M-Pesa Paybill",
+  "M-Pesa P2P",
+  "M-Pesa Withdrawal",
+  "M-Pesa Others",
+  # "Interconnect Local", # -----------------------------------------------------------------------------
+  "Interconnect Local - Movitel",
+  "Interconnect Local - mCel",
+  "Interconnect Local - TDM",
+  "Interconnect International",
   "Inflows",
-  "Total Traffic",
+  "Outflows",
 ]
 
 

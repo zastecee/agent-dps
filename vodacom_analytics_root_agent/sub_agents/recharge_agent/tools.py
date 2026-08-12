@@ -1,11 +1,18 @@
 import csv
+import os
 from datetime import UTC, datetime
 from typing import Literal
 
 from dateutil.relativedelta import relativedelta
 
 # Load the recharge dataset from a CSV file
-with open("recharge_dataset.csv", mode="r", encoding="iso-8859-1", newline="") as file:
+_dir = os.path.dirname(os.path.abspath(__file__))
+with open(
+  os.path.join(_dir, "recharge_dataset.csv"),
+  mode="r",
+  encoding="iso-8859-1",
+  newline="",
+) as file:
   records = list(csv.DictReader(file))
 
 BillingType = Literal["prepaid", "hybrid", "total"]
