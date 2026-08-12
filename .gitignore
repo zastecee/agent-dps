@@ -38,6 +38,7 @@ dist/
 
 # CSV
 **/*.csv
+
 # CSV files
 *.csv
 

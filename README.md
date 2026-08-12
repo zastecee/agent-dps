@@ -1,3 +1,6 @@
+https://gemini.google.com/app/b994398abc337118
+
+
 # ADK Workshop — Getting Started
 
 Welcome to the Vodacom AI Platform ADK hands-on workshop.
