@@ -1,4 +1,5 @@
 import csv
+import json
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -10,7 +11,6 @@ with open("recharge_dataset.csv", mode="r", encoding="iso-8859-1", newline="") a
 
 BillingType = Literal["prepaid", "hybrid", "total"]
 RechargeGroup = Literal["mpesa", "other", "all"]
-
 
 MPESA_KPI_LIST = [
   "MPesa Bundles",
@@ -42,37 +42,13 @@ RECHARGE_GROUP_MAP = {
   "all": RECHARGE_KPI_LIST,
 }
 
-KPIType = Literal[
-  "MPesa Bundles",
-  "So-Prati",
-  "My Vodacom",
-  "Super Agent",
-  "Baza Baza",
-  "M-Pesa Recharge",
-  "Electronic - Others",
-  "Electronic - Bank",
-  "Physical",
-]
-
 
 # Function to get total recharge per day for a specific KPI and date
 def get_total_recharge_per_day(
-  kpi: KPIType,
+  kpi: str,
   date: str,
   billing_type: BillingType = "prepaid",
 ) -> dict:
-  """Calculates the total recharge revenue for a single channel KPI on a specific date.
-
-  Args:
-      kpi: The recharge channel KPI to query (e.g., 'MPesa Bundles', 'Physical').
-      date: The target date in 'DD-MMM-YY' uppercase format (e.g., '22-OCT-25').
-      billing_type: The customer billing segment ('prepaid', 'hybrid', 'total').
-        Defaults to 'prepaid'.
-
-  Returns:
-      dict: A dictionary containing query parameters and formatted total recharge,
-            or an error dictionary if retrieval fails.
-  """
   try:
     target_column = RECHARGE_BILLING_MAP.get(billing_type.lower(), billing_type)
 
@@ -97,16 +73,6 @@ def get_total_mpesa_recharge_per_day(
   date: str,
   billing_type: BillingType = "prepaid",
 ) -> dict:
-  """Calculates the combined daily recharge total across all M-Pesa channels for a given date.
-
-  Args:
-      date: The target date in 'DD-MMM-YY' uppercase format (e.g., '22-OCT-25').
-      billing_type: The customer billing segment ('prepaid', 'hybrid', 'total').
-        Defaults to 'prepaid'.
-
-  Returns:
-      dict: A dictionary containing the target date, billing type, and total M-Pesa recharge.
-  """
   try:
     target_column = RECHARGE_BILLING_MAP.get(billing_type.lower(), billing_type)
 
@@ -132,16 +98,6 @@ def get_total_other_recharge_per_day(
   date: str,
   billing_type: BillingType = "prepaid",
 ) -> dict:
-  """Calculates the combined daily recharge total for all non-M-Pesa channels (Electronic - Others, Electronic - Bank, Physical).
-
-  Args:
-      date: The target date in 'DD-MMM-YY' uppercase format (e.g., '22-OCT-25').
-      billing_type: The customer billing segment ('prepaid', 'hybrid', 'total').
-        Defaults to 'prepaid'.
-
-  Returns:
-      dict: A dictionary with the target date, billing type, and combined non-M-Pesa recharge.
-  """
   try:
     target_column = RECHARGE_BILLING_MAP.get(billing_type.lower(), billing_type)
 
@@ -167,16 +123,6 @@ def get_total_recharge_per_day_all_kpis(
   date: str,
   billing_type: BillingType = "prepaid",
 ) -> dict:
-  """Calculates the grand total daily recharge revenue across all available channels (M-Pesa + Other channels).
-
-  Args:
-      date: The target date in 'DD-MMM-YY' uppercase format (e.g., '22-OCT-25').
-      billing_type: The customer billing segment ('prepaid', 'hybrid', 'total').
-        Defaults to 'prepaid'.
-
-  Returns:
-      dict: A dictionary containing the target date, billing type, and grand total recharge sum.
-  """
   try:
     target_column = RECHARGE_BILLING_MAP.get(billing_type.lower(), billing_type)
 
@@ -199,21 +145,10 @@ def get_total_recharge_per_day_all_kpis(
 
 # Function to get the total revenue for a specific KPI and date range
 def get_kpi_month_to_date_total(
-  kpi: KPIType,
+  kpi: str,
   target_date: str,
   billing_type: BillingType = "prepaid",
 ) -> dict:
-  """Calculates the Month-To-Date (MTD) cumulative recharge revenue for a single channel KPI up to a given date.
-
-  Args:
-      kpi: The specific recharge channel KPI (e.g., 'MPesa Bundles', 'Physical').
-      target_date: The end date for the MTD accumulation in 'DD-MMM-YY' format (e.g., '22-OCT-25').
-      billing_type: The customer billing segment ('prepaid', 'hybrid', 'total').
-        Defaults to 'prepaid'.
-
-  Returns:
-      dict: A dictionary containing target date, KPI, billing type, and formatted MTD revenue.
-  """
   try:
     target_column = RECHARGE_BILLING_MAP.get(billing_type.lower(), billing_type)
 
@@ -252,18 +187,6 @@ def get_grouped_recharge_month_to_date_total(
   group: RechargeGroup = "mpesa",
   billing_type: BillingType = "prepaid",
 ) -> dict:
-  """Calculates the Month-To-Date (MTD) cumulative recharge total for a group of channels ('mpesa', 'other', or 'all').
-
-  Args:
-      target_date: The end date for the MTD period in 'DD-MMM-YY' format (e.g., '22-OCT-25').
-      group: The recharge channel group filter. Options are 'mpesa', 'other', or 'all'.
-        Defaults to 'mpesa'.
-      billing_type: The customer billing segment ('prepaid', 'hybrid', 'total').
-        Defaults to 'prepaid'.
-
-  Returns:
-      dict: A dictionary with the target date, group, billing type, and cumulative MTD total.
-  """
   try:
     target_column = RECHARGE_BILLING_MAP.get(billing_type.lower(), billing_type)
     target_kpis = RECHARGE_GROUP_MAP.get(group.lower(), MPESA_KPI_LIST)
@@ -302,18 +225,6 @@ def get_grouped_recharge_month_on_month_metrics(
   group: RechargeGroup,
   billing_type: BillingType = "prepaid",
 ) -> dict:
-  """Compares Month-To-Date (MTD) recharge metrics between the target date and the same day of the previous month (MoM) for a channel group.
-
-  Args:
-      target_date: The current evaluation date in 'DD-MMM-YY' format (e.g., '22-OCT-25').
-      group: The recharge group to analyze ('mpesa', 'other', or 'all').
-      billing_type: Customer billing segment ('prepaid', 'hybrid', 'total').
-        Defaults to 'prepaid'.
-
-  Returns:
-      dict: Comparison results containing current MTD total, previous month MTD total,
-            absolute difference, and percentage change.
-  """
   try:
     previous_month_date = get_previous_month_same_day(target_date)
 
@@ -363,18 +274,6 @@ def get_grouped_recharge_year_on_year_metrics(
   group: RechargeGroup,
   billing_type: BillingType = "prepaid",
 ) -> dict:
-  """Compares Month-To-Date (MTD) recharge metrics between the target date and the same day of the previous year (YoY) for a channel group.
-
-  Args:
-      target_date: The current evaluation date in 'DD-MMM-YY' format (e.g., '22-OCT-25').
-      group: The recharge group to analyze ('mpesa', 'other', or 'all').
-      billing_type: Customer billing segment ('prepaid', 'hybrid', 'total').
-        Defaults to 'prepaid'.
-
-  Returns:
-      dict: Comparison results containing current year MTD total, previous year MTD total,
-            absolute difference, and percentage change.
-  """
   try:
     previous_year_date = get_previous_year_same_day(target_date)
 
@@ -418,24 +317,40 @@ def get_grouped_recharge_year_on_year_metrics(
     }
 
 
+# Function to get the same day of the previous month for a given date
+def get_previous_month_same_day(target_date: str) -> str:
+  try:
+    target_date_obj = (
+      datetime.strptime(target_date, "%d-%b-%y").replace(tzinfo=UTC).date()
+    )
+    prev_month_date = target_date_obj - relativedelta(months=1)
+    return prev_month_date.strftime("%d-%b-%y").upper()
+  except ValueError as e:
+    raise ValueError(
+      f"Data inválida '{target_date}'. O formato esperado é 'DD-MMM-YY' (ex: '22-OCT-25')."
+    ) from e
+
+
+# Function to get the same day of the previous year for a given date
+def get_previous_year_same_day(target_date: str) -> str:
+  try:
+    target_date_obj = (
+      datetime.strptime(target_date, "%d-%b-%y").replace(tzinfo=UTC).date()
+    )
+    prev_year_date = target_date_obj - relativedelta(years=1)
+    return prev_year_date.strftime("%d-%b-%y").upper()
+  except ValueError as e:
+    raise ValueError(
+      f"Data inválida '{target_date}'. O formato esperado é 'DD-MMM-YY' (ex: '22-OCT-25')."
+    ) from e
+
+
 # Function to get month-on-month metrics for a specific KPI and date
 def get_recharge_month_on_month_metrics(
-  kpi: KPIType,
+  kpi: str,
   target_date: str,
   billing_type: BillingType = "prepaid",
 ) -> dict:
-  """Compares Month-To-Date (MTD) recharge metrics between the target date and the same day of the previous month (MoM) for a specific KPI channel.
-
-  Args:
-      kpi: The recharge channel KPI to evaluate (e.g., 'MPesa Bundles', 'Physical').
-      target_date: The current evaluation date in 'DD-MMM-YY' format (e.g., '22-OCT-25').
-      billing_type: Customer billing segment ('prepaid', 'hybrid', 'total').
-        Defaults to 'prepaid'.
-
-  Returns:
-      dict: Comparison results containing current MTD total, previous month MTD total,
-            absolute difference, and percentage change.
-  """
   try:
     previous_month_date = get_previous_month_same_day(target_date)
 
@@ -475,22 +390,10 @@ def get_recharge_month_on_month_metrics(
 
 # Function to get year-on-year metrics for a specific KPI and date
 def get_recharge_year_on_year_metrics(
-  kpi: KPIType,
+  kpi: str,
   target_date: str,
   billing_type: BillingType = "prepaid",
 ) -> dict:
-  """Compares Month-To-Date (MTD) recharge metrics between the target date and the same day of the previous year (YoY) for a specific KPI channel.
-
-  Args:
-      kpi: The recharge channel KPI to evaluate (e.g., 'MPesa Bundles', 'Physical').
-      target_date: The current evaluation date in 'DD-MMM-YY' format (e.g., '22-OCT-25').
-      billing_type: Customer billing segment ('prepaid', 'hybrid', 'total').
-        Defaults to 'prepaid'.
-
-  Returns:
-      dict: Comparison results containing current year MTD total, previous year MTD total,
-            absolute difference, and percentage change.
-  """
   try:
     previous_year_date = get_previous_year_same_day(target_date)
     current_data = get_kpi_month_to_date_total(kpi, target_date, billing_type)
@@ -526,29 +429,134 @@ def get_recharge_year_on_year_metrics(
     }
 
 
-# Function to get the same day of the previous month for a given date
-def get_previous_month_same_day(target_date: str) -> str:
-  try:
-    target_date_obj = (
-      datetime.strptime(target_date, "%d-%b-%y").replace(tzinfo=UTC).date()
-    )
-    prev_month_date = target_date_obj - relativedelta(months=1)
-    return prev_month_date.strftime("%d-%b-%y").upper()
-  except ValueError as e:
-    raise ValueError(
-      f"Data inválida '{target_date}'. O formato esperado é 'DD-MMM-YY' (ex: '22-OCT-25')."
-    ) from e
+# test cases for the function, for each KPI and date combination, including different billing types.
+if __name__ == "__main__":
+  # # Test case for total recharge per day
+  # kpi = "MPesa Bundles"  # MPesa Bundles
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_recharge_per_day(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
 
+  # kpi = "So-Prati"  # So-Prati
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_recharge_per_day(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
 
-# Function to get the same day of the previous year for a given date
-def get_previous_year_same_day(target_date: str) -> str:
-  try:
-    target_date_obj = (
-      datetime.strptime(target_date, "%d-%b-%y").replace(tzinfo=UTC).date()
-    )
-    prev_year_date = target_date_obj - relativedelta(years=1)
-    return prev_year_date.strftime("%d-%b-%y").upper()
-  except ValueError as e:
-    raise ValueError(
-      f"Data inválida '{target_date}'. O formato esperado é 'DD-MMM-YY' (ex: '22-OCT-25')."
-    ) from e
+  # kpi = "My Vodacom"  # My Vodacom
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_recharge_per_day(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # kpi = "Super Agent"  # Super Agent
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_recharge_per_day(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # kpi = "Baza Baza"  # Baza Baza
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_recharge_per_day(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # kpi = "M-Pesa Recharge"  # M-Pesa Recharge
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_recharge_per_day(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # kpi = "Others"  # Others ------ Soma dos outros ---------
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_recharge_per_day(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # kpi = "Electronic - Others"  # Electronic - Others
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_recharge_per_day(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # kpi = "Electronic - Bank"  # Electronic - Bank
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_recharge_per_day(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # kpi = "Physical"  # Physical
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_recharge_per_day(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # kpi = "Physical"
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_kpi_month_to_date_total(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # kpi = "Physical"
+  # date = "06-JUL-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_kpi_month_to_date_total(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # kpi = "Physical"
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_recharge_month_on_month_metrics(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # kpi = "Physical"
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_recharge_year_on_year_metrics(kpi, date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # # Test case for total M-Pesa recharge per day
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_mpesa_recharge_per_day(date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # # Test case for total other recharge per day
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_other_recharge_per_day(date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # # Test case for total recharge per day for all KPIs
+  # date = "06-AUG-26"
+  # for billing_type in ["prepaid", "hybrid", "total"]:
+  #   result = get_total_recharge_per_day_all_kpis(date, billing_type=billing_type)
+  #   print(json.dumps(result, indent=2))
+
+  # # Test case for grouped recharge month-to-date total
+  # date = "06-AUG-26"
+  # for group in ["mpesa", "other", "all"]:
+  #   for billing_type in ["prepaid", "hybrid", "total"]:
+  #     result = get_grouped_recharge_month_to_date_total(
+  #       date, group=group, billing_type=billing_type
+  #     )
+  #     print(json.dumps(result, indent=2))
+
+  # # Test case for grouped recharge month-on-month metrics
+  # date = "06-AUG-26"
+  # for group in ["mpesa", "other", "all"]:
+  #   for billing_type in ["prepaid", "hybrid", "total"]:
+  #     result = get_grouped_recharge_month_on_month_metrics(
+  #       date, group=group, billing_type=billing_type
+  #     )
+  #     print(json.dumps(result, indent=2))
+
+  # Test case for grouped recharge year-on-year metrics
+  date = "06-AUG-26"
+  for group in ["mpesa", "other", "all"]:
+    for billing_type in ["prepaid", "hybrid", "total"]:
+      result = get_grouped_recharge_year_on_year_metrics(
+        date, group=group, billing_type=billing_type
+      )
+      print(json.dumps(result, indent=2))

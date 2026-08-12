@@ -1,4 +1,5 @@
 import csv
+import json
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -243,3 +244,38 @@ def get_previous_year_same_day(target_date: str) -> str:
     raise ValueError(
       f"Data inválida '{target_date}'. O formato esperado é 'DD-MMM-YY' (ex: '22-OCT-25')."
     ) from e
+
+
+# Test cases for the function, for each KPI and date combination, including different billing types.
+if __name__ == "__main__":
+  # Test case for total traffic per day
+  kpi = "Voice Traffic - Billed"
+  date = "06-AUG-26"
+  for billing_type in ["DC_TOTAL", "DC_PREPAD", "DC_HYBRID"]:
+    result = get_total_traffic_per_day(kpi, date, billing_type=billing_type)
+    print(json.dumps(result, indent=2))
+
+  # Test case for month-to-date total traffic
+  kpi = "Voice Traffic - Billed"
+  target_date = "06-AUG-26"
+  for billing_type in ["DC_TOTAL", "DC_PREPAD", "DC_HYBRID"]:
+    result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
+    print(json.dumps(result, indent=2))
+
+  # Test case for month-on-month metrics
+  kpi = "Voice Traffic - Billed"
+  target_date = "06-AUG-26"
+  for billing_type in ["DC_TOTAL", "DC_PREPAD", "DC_HYBRID"]:
+    result = get_traffic_month_on_month_metrics(
+      kpi, target_date, billing_type=billing_type
+    )
+    print(json.dumps(result, indent=2))
+
+  # Test case for year-on-year metrics
+  kpi = "Outflows"
+  target_date = "06-AUG-26"
+  for billing_type in ["DC_TOTAL", "DC_PREPAD", "DC_HYBRID"]:
+    result = get_traffic_year_on_year_metrics(
+      kpi, target_date, billing_type=billing_type
+    )
+    print(json.dumps(result, indent=2))
