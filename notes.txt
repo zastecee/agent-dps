@@ -1,3 +1,14 @@
+
+
+
+
+Reporte do dia (todos kpi)
+De-me o reporte do dia 6 (Revenue, customers, Traffic, , junto com o seu respectivo graficos)
+
+
+
+
+
 --- Customer e Traffic --------------------
 
 BO.V_DRA_DAILY_CUSTOMERS_SELECT

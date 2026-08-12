@@ -1,5 +1,4 @@
 import csv
-import json
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -52,25 +51,61 @@ MONTH_TO_DATE_KPIS_MAP = {
   "Gross Adds - GSM": "Gross Adds - GSM",
 }
 
-
-# total = 0
-# DESCRIPTION_SET = set(item["EVENT_DESCRIPTION"] for item in records)
-# for description in DESCRIPTION_SET:
-#   if description == "30 Days Total Buyers":
-#     print(description)
+FORMULA_2_KPIS = {
+  "Gross Adds - GSM",
+}
 
 
-# for item in records:
-#   if item["EVENT_DESCRIPTION"] == "MTD Active GSM" and item["DC_DATE"] == "06-AUG-26":
-#     total = float(item["DC_PREPAD"]) + total
+KPIType = Literal[
+  "Active GSM",
+  "Voice Users",
+  "Data Users",
+  "Sms Users",
+  "Active Mpesa base",
+  "Total Revenue Users",
+  "Voice Revenue Users",
+  "Data Revenue Users",
+  "Sms Revenue Users",
+  "Total Buyers",
+  "Voice Buyers",
+  "Data Buyers",
+  "Sms Buyers",
+  "30 Days Active SUBID",
+  "30 Days Active GSM SUBID",
+  "30 Days Voice Users SUBID",
+  "30 Days Data Users SUBID",
+  "30 Days Sms Users SUBID",
+  "30 Days Total Revenue Users",
+  "30 Days Voice Revenue Users",
+  "30 Days Data Revenue Users",
+  "30 Days Sms Revenue Users",
+  "30 Days Total Buyers",
+  "30 Days Voice Buyers",
+  "30 Days Data Buyers",
+  "30 Days Sms Buyers",
+  "Gross Adds Mpesa",
+  "Gross Adds - GSM",
+]
 
 
 # Function to get total customers per day for a specific KPI and date
 def get_total_customers_per_day(
-  kpi: str,
+  kpi: KPIType,
   date: str,
   billing_type: BillingType = "prepaid",
 ) -> dict:
+  """Calculates the total number of customers for a specific KPI on a single day.
+
+  Args:
+      kpi: The name of the KPI metric to query (e.g., 'Active GSM', 'Voice Users').
+      date: The target date in 'DD-MMM-YY' uppercase format (e.g., '22-OCT-25').
+      billing_type: The customer billing segment. Allowed values are 'prepaid',
+        'hybrid', or 'total'. Defaults to 'prepaid'.
+
+  Returns:
+      dict: A dictionary containing query metadata and the formatted total customer count,
+            or an error message if the query fails.
+  """
   try:
     target_column = CUSTOMER_BILLING_MAP.get(billing_type.lower(), billing_type)
 
@@ -90,47 +125,46 @@ def get_total_customers_per_day(
     return {"error": f"get_total_customers_per_day failed due to invalid data: {e}"}
 
 
-# for key, value in MONTH_TO_DATE_KPIS_MAP.items():
-#   kpi = key
-#   date = "06-AUG-26"
-#   for billing_type in ["prepaid", "hybrid", "total"]:
-#     result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-#     print(json.dumps(result, indent=2))
-
-
 # Function to get the total customers for a specific KPI and date range
 def get_kpi_month_to_date_total(
-  kpi: str,
+  kpi: KPIType,
   target_date: str,
   billing_type: BillingType = "prepaid",
 ) -> dict:
+  """Calculates the Month-To-Date (MTD) cumulative total for a specific KPI up to a given date.
+
+  Args:
+      kpi: The name of the KPI metric (e.g., 'Active GSM', 'Gross Adds - GSM').
+      target_date: The end date for the MTD period in 'DD-MMM-YY' format (e.g., '22-OCT-25').
+      billing_type: The customer billing segment ('prepaid', 'hybrid', 'total'). Defaults to 'prepaid'.
+
+  Returns:
+      dict: A dictionary with the target date, KPI, billing type, and MTD total value.
+  """
   try:
-    # Case 1: Formula 2
     target_column = CUSTOMER_BILLING_MAP.get(billing_type.lower(), billing_type)
     month_to_date_total = 0.0
     target_kpi = MONTH_TO_DATE_KPIS_MAP.get(kpi, kpi)
 
-    for item in records:
-      if item["EVENT_DESCRIPTION"] == target_kpi and item["DC_DATE"] == target_date:
-        month_to_date_total = float(item[target_column]) + month_to_date_total
+    if kpi in FORMULA_2_KPIS:
+      parsed_dt = datetime.strptime(target_date, "%d-%b-%y").replace(tzinfo=UTC)
+      target_date_obj = parsed_dt.date()
+      month_start_date = target_date_obj.replace(day=1)
 
-    # # Case 2: Formula 2
-    # target_column = CUSTOMER_BILLING_MAP.get(billing_type.lower(), billing_type)
-    # parsed_dt = datetime.strptime(target_date, "%d-%b-%y").replace(tzinfo=UTC)
-    # target_date_obj = parsed_dt.date()
-    # month_start_date = target_date_obj.replace(day=1)
-    # month_to_date_total = 0.0
+      for record in records:
+        if record["EVENT_DESCRIPTION"] != target_kpi:
+          continue
 
-    # for record in records:
-    #   if record["EVENT_DESCRIPTION"] != kpi:
-    #     continue
+        record_date = (
+          datetime.strptime(record["DC_DATE"], "%d-%b-%y").replace(tzinfo=UTC).date()
+        )
 
-    #   record_date = (
-    #     datetime.strptime(record["DC_DATE"], "%d-%b-%y").replace(tzinfo=UTC).date()
-    #   )
-
-    #   if month_start_date <= record_date <= target_date_obj:
-    #     month_to_date_total += float(record.get(target_column))
+        if month_start_date <= record_date <= target_date_obj:
+          month_to_date_total += float(record.get(target_column))
+    else:
+      for item in records:
+        if item["EVENT_DESCRIPTION"] == target_kpi and item["DC_DATE"] == target_date:
+          month_to_date_total = float(item[target_column]) + month_to_date_total
 
     return {
       "date": target_date,
@@ -143,342 +177,135 @@ def get_kpi_month_to_date_total(
     return {"error": f"get_kpi_month_to_date_total failed: {e}"}
 
 
-# # Test cases for the function, for each KPI and date combination, including different billing types.
-if __name__ == "__main__":
-  # # Test case for total customers per
-  # kpi = "Active GSM"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+# Function to get the same day of the previous month for a given date
+def get_previous_month_same_day(target_date: str) -> str:
+  try:
+    target_date_obj = (
+      datetime.strptime(target_date, "%d-%b-%y").replace(tzinfo=UTC).date()
+    )
+    prev_month_date = target_date_obj - relativedelta(months=1)
+    return prev_month_date.strftime("%d-%b-%y").upper()
+  except ValueError as e:
+    raise ValueError(
+      f"Data inválida '{target_date}'. O formato esperado é 'DD-MMM-YY' (ex: '22-OCT-25')."
+    ) from e
 
-  # kpi = "Voice Users"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
 
-  # kpi = "Data Users"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+# Function to get the same day of the previous year for a given date
+def get_previous_year_same_day(target_date: str) -> str:
+  try:
+    target_date_obj = (
+      datetime.strptime(target_date, "%d-%b-%y").replace(tzinfo=UTC).date()
+    )
+    prev_year_date = target_date_obj - relativedelta(years=1)
+    return prev_year_date.strftime("%d-%b-%y").upper()
+  except ValueError as e:
+    raise ValueError(
+      f"Data inválida '{target_date}'. O formato esperado é 'DD-MMM-YY' (ex: '22-OCT-25')."
+    ) from e
 
-  # kpi = "Sms Users"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
 
-  # kpi = "Active Mpesa base"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+# Function to get month-on-month metrics for a specific KPI and date
+def get_customers_month_on_month_metrics(
+  kpi: KPIType,
+  target_date: str,
+  billing_type: BillingType = "prepaid",
+) -> dict:
+  """Compares Month-To-Date (MTD) customer metrics between the target date and the same day of the previous month (MoM).
 
-  # kpi = "Total Revenue Users"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+  Args:
+      kpi: The KPI metric to analyze (e.g., 'Active GSM', 'Data Users').
+      target_date: The current evaluation date in 'DD-MMM-YY' format (e.g., '22-OCT-25').
+      billing_type: Customer billing segment ('prepaid', 'hybrid', 'total'). Defaults to 'prepaid'.
 
-  # kpi = "Voice Revenue Users"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+  Returns:
+      dict: Comparison results containing current MTD total, previous month MTD total,
+            absolute difference, and percentage change.
+  """
+  try:
+    previous_month_date = get_previous_month_same_day(target_date)
 
-  # kpi = "Data Revenue Users"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+    current_data = get_kpi_month_to_date_total(kpi, target_date, billing_type)
+    previous_data = get_kpi_month_to_date_total(kpi, previous_month_date, billing_type)
 
-  # kpi = "Sms Revenue Users"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+    current_month_total = float(
+      current_data.get("month_to_date_total", 0).replace(",", "")
+    )
+    previous_month_total = float(
+      previous_data.get("month_to_date_total", 0).replace(",", "")
+    )
 
-  # kpi = "Total Buyers"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+    difference = current_month_total - previous_month_total
 
-  # kpi = "Voice Buyers"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+    percentage_change = (
+      (difference / previous_month_total) * 100 if previous_month_total != 0 else None
+    )
 
-  # kpi = "Data Buyers"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+    return {
+      "target_date": target_date,
+      "previous_month_date": previous_month_date,
+      "kpi": kpi,
+      "billing_type": billing_type,
+      "current_month_total": f"{round(current_month_total):,}",
+      "previous_month_total": f"{round(previous_month_total):,}",
+      "difference": f"{round(difference):,}",
+      "percentage_change": (
+        round(percentage_change, 1) if percentage_change is not None else None
+      ),
+    }
+  except (KeyError, ValueError, TypeError) as e:
+    return {
+      "error": (f"get_customers_month_on_month_metrics failed due to invalid data: {e}")
+    }
 
-  # kpi = "Sms Buyers"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
 
-  # kpi = "30 Days Active SUBID"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+# Function to get year-on-year metrics for a specific KPI and date
+def get_customers_year_on_year_metrics(
+  kpi: KPIType,
+  target_date: str,
+  billing_type: BillingType = "prepaid",
+) -> dict:
+  """Compares Month-To-Date (MTD) customer metrics between the target date and the same day of the previous year (YoY).
 
-  # kpi = "30 Days Active GSM SUBID"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+  Args:
+      kpi: The KPI metric to analyze (e.g., 'Active GSM', 'Data Users').
+      target_date: The current evaluation date in 'DD-MMM-YY' format (e.g., '22-OCT-25').
+      billing_type: Customer billing segment ('prepaid', 'hybrid', 'total'). Defaults to 'prepaid'.
 
-  # kpi = "30 Days Voice Users SUBID"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+  Returns:
+      dict: Comparison results containing current year MTD total, previous year MTD total,
+            absolute difference, and percentage change.
+  """
+  try:
+    previous_year_date = get_previous_year_same_day(target_date)
+    current_data = get_kpi_month_to_date_total(kpi, target_date, billing_type)
+    previous_data = get_kpi_month_to_date_total(kpi, previous_year_date, billing_type)
 
-  # kpi = "30 Days Data Users SUBID"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+    current_year_total = float(
+      current_data.get("month_to_date_total", 0).replace(",", "")
+    )
+    previous_year_total = float(
+      previous_data.get("month_to_date_total", 0).replace(",", "")
+    )
 
-  # kpi = "30 Days Sms Users SUBID"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
+    difference = current_year_total - previous_year_total
+    percentage_change = (
+      (difference / previous_year_total) * 100 if previous_year_total != 0 else None
+    )
 
-  # kpi = "30 Days Total Revenue Users"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Voice Revenue Users"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Data Revenue Users"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Sms Revenue Users"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Total Buyers"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Voice Buyers"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Data Buyers"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Sms Buyers"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Gross Adds - GSM"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Gross Adds Mpesa"
-  # date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_total_customers_per_day(kpi, date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # Test case for month-to-date total customers
-  # kpi = "Active GSM"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Voice Users"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Data Users"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Sms Users"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Active Mpesa base"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Total Revenue Users"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Voice Revenue Users"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Data Revenue Users"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Sms Revenue Users"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Total Buyers"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Voice Buyers"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Data Buyers"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Sms Buyers"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Active SUBID"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Active GSM SUBID"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Voice Users SUBID"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Data Users SUBID"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Sms Users SUBID"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Total Revenue Users"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Voice Revenue Users"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Data Revenue Users"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Sms Revenue Users"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Total Buyers"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Voice Buyers"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Data Buyers"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "30 Days Sms Buyers"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  # kpi = "Gross Adds - GSM"
-  # target_date = "06-AUG-26"
-  # for billing_type in ["prepaid", "hybrid", "total"]:
-  #   result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-  #   print(json.dumps(result, indent=2))
-
-  kpi = "Gross Adds Mpesa"
-  target_date = "06-AUG-26"
-  for billing_type in ["prepaid", "hybrid", "total"]:
-    result = get_kpi_month_to_date_total(kpi, target_date, billing_type=billing_type)
-    print(json.dumps(result, indent=2))
+    return {
+      "target_date": target_date,
+      "previous_year_date": previous_year_date,
+      "kpi": kpi,
+      "billing_type": billing_type,
+      "current_year_total": f"{round(current_year_total):,}",
+      "previous_year_total": f"{round(previous_year_total):,}",
+      "difference": f"{round(difference):,}",
+      "percentage_change": (
+        round(percentage_change, 1) if percentage_change is not None else None
+      ),
+    }
+  except (KeyError, ValueError, TypeError) as e:
+    return {
+      "error": (f"get_customers_year_on_year_metrics failed due to invalid data: {e}")
+    }
